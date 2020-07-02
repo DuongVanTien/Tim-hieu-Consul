@@ -1,0 +1,77 @@
+version: "3.7"
+
+networks:
+  consul:
+    driver: overlay
+services:
+ consul-master:
+  hostname: ${HOSTNAME}
+  image: consul:latest
+  restart: always
+  ports:
+   - "8300:8302"
+   - "8301-8302:8301-8302/udp"
+   - "8500:8500"
+   - "8600:8600/udp"  
+  networks:
+      consul:
+        aliases:
+          - consul.cluster
+  entrypoint:
+      - consul
+      - agent
+      - -server
+      - -ui
+      - -node=server-1 
+      - -bootstrap-expect=1
+      - -datacenter=lab
+      - -client=0.0.0.0
+      - -retry-join=consul.cluster
+      - -bind={{ GetInterfaceIP "eth0" }}
+      - -data-dir= /opt/consul
+      - -encrypt=pju04BkafjtJ19xONoFGWL/BQG1/qO+TEojredSrTTM=
+      - -raft-protocol=1
+  volumes:
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - /proc:/host/proc:ro
+  deploy:
+   mode: global
+   restart_policy:
+     condition: on-failure
+   placement:
+     constraints:
+       - node.hostname==minio8-dev
+
+ consul-client:
+  hostname: ${HOSTNAME}
+  container_name: consul_client
+  image: consul:latest
+  restart: always
+  networks:
+    consul:
+      aliases:
+       - consul.cluster.client
+  entrypoint:
+      - consul
+      - agent
+      - -datacenter=lab
+      - -retry-join=consul.cluster
+      - -bind={{ GetInterfaceIP "eth0" }}
+      - -data-dir= /opt/consul
+      - -config-dir=/consul/config
+      - -encrypt=pju04BkafjtJ19xONoFGWL/BQG1/qO+TEojredSrTTM=
+      - -raft-protocol=1
+  volumes:
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+      - /proc:/host/proc:ro
+      - /home/sysadmin/consul/c_advisor.json:/consul/config/c_advisor.json
+      - /home/sysadmin/consul/node_exporter.json:/consul/config/node_exporter.json
+  deploy:
+   mode: global
+   restart_policy:
+     condition: on-failure
+   placement:
+     constraints: [node.platform.os == linux]
+
